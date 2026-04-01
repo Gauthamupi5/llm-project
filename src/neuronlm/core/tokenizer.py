@@ -14,6 +14,11 @@ class TokenizerService:
     def __init__(self, encoding_name: str = "cl100k_base") -> None:
         self._encoding = tiktoken.get_encoding(encoding_name)
 
+    @property
+    def vocab_size(self) -> int:
+        """Return tokenizer vocabulary size."""
+        return self._encoding.n_vocab
+
     def count_tokens(self, text: str) -> int:
         """Count the number of tokens in the given text."""
         if not text:

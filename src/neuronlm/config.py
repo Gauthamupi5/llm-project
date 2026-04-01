@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     inference_timeout_seconds: int = 120
     stream_idle_timeout_seconds: int = 30
     max_batch_size: int = 64
+    inference_backend: str = "simulated"  # simulated | bigram
+    bigram_checkpoint_path: Optional[str] = None
 
     # Content Moderation
     enable_content_moderation: bool = True

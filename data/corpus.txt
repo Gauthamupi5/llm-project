@@ -1,0 +1,34 @@
+# NeuronLM Starter Corpus
+# Keep one sentence or one QA pair per line.
+# Remove these comment lines before large-scale training if needed.
+
+You are a helpful AI assistant.
+Provide clear, concise, and accurate answers.
+If uncertain, say what is unknown and suggest next steps.
+
+Question: What is machine learning? Answer: Machine learning is a method where systems learn patterns from data to make predictions or decisions.
+Question: What is supervised learning? Answer: Supervised learning trains a model on labeled examples to predict outputs for new inputs.
+Question: What is overfitting? Answer: Overfitting happens when a model learns training noise and performs poorly on new data.
+Question: What is regularization? Answer: Regularization reduces model complexity to improve generalization.
+Question: What is a transformer? Answer: A transformer is a neural architecture using self-attention to process token relationships.
+
+In production systems, monitor latency, error rates, and throughput.
+Use structured logs and trace IDs for debugging.
+Design APIs with clear schemas and validation.
+
+Domain: LLM architecture has model design, inference, decoding, and optimization layers.
+Domain: KV cache stores attention keys and values from prior tokens to speed generation.
+Domain: Top-p sampling restricts token choice to a cumulative probability mass.
+Domain: Beam search explores multiple candidate sequences and keeps the best scoring beams.
+
+Style: Use short paragraphs and explicit assumptions.
+Style: Prefer actionable steps over abstract statements.
+Style: Keep technical language precise and avoid vague claims.
+
+Safety: Do not provide harmful or unsafe instructions.
+Safety: Respect privacy and avoid exposing sensitive data.
+
+Example task: Summarize this architecture in three bullets.
+Example response: The system has API orchestration, inference execution, and optimization controls.
+Example response: The model layer defines computation while decoding controls token selection.
+Example response: Performance depends on batching, cache strategy, and runtime backend.

@@ -9,14 +9,17 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import logging
 import random
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
+import numpy as np
+
+from neuronlm.config import get_settings
 from neuronlm.core.exceptions import (
     InferenceError,
     ModelNotFoundError,
@@ -36,6 +39,7 @@ from neuronlm.models.schemas import (
     ModelStatus,
     UsageInfo,
 )
+from neuronlm.training.bigram_lm import BigramLanguageModel
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +69,23 @@ class InferenceEngine:
         self._models: dict[str, ModelConfig] = {}
         self._tokenizer = get_tokenizer()
         self._start_time = time.time()
+        settings = get_settings()
+        self._backend = settings.inference_backend.lower().strip()
+        self._bigram_model: Optional[BigramLanguageModel] = None
 
         # Register default models
         self._register_default_models()
+
+        # Optional trained-model bootstrap for local training flow
+        if settings.bigram_checkpoint_path:
+            try:
+                self.load_bigram_checkpoint(settings.bigram_checkpoint_path)
+                logger.info("Loaded bigram checkpoint: %s", settings.bigram_checkpoint_path)
+            except Exception:
+                logger.exception(
+                    "Failed to load bigram checkpoint, falling back to simulated backend"
+                )
+                self._backend = "simulated"
 
     def _register_default_models(self) -> None:
         """Register built-in models."""
@@ -147,6 +165,16 @@ class InferenceEngine:
         In production, this calls vLLM/TensorRT-LLM. This implementation
         provides a deterministic, seed-based response for testing.
         """
+        if self._backend == "bigram" and self._bigram_model is not None:
+            return self._generate_bigram_response(
+                prompt=prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stop=stop,
+                seed=seed,
+                top_p=1.0,
+            )
+
         if seed is not None:
             rng = random.Random(seed)
         else:
@@ -198,6 +226,56 @@ class InferenceEngine:
                     break
 
         return response
+
+    def load_bigram_checkpoint(self, checkpoint_path: str) -> None:
+        """Load a trained bigram checkpoint and enable bigram backend."""
+        model = BigramLanguageModel.load(checkpoint_path)
+        self._bigram_model = model
+        self._backend = "bigram"
+
+    def _generate_bigram_response(
+        self,
+        prompt: str,
+        temperature: float,
+        max_tokens: int,
+        stop: Optional[list[str]],
+        seed: Optional[int],
+        top_p: float,
+    ) -> str:
+        """Generate text using trained bigram transition probabilities."""
+        if self._bigram_model is None:
+            raise InferenceError("Bigram backend selected but no checkpoint is loaded")
+
+        prompt_tokens = self._tokenizer.encode(prompt)
+        if not prompt_tokens:
+            prompt_tokens = [0]
+
+        generated: list[int] = []
+        prev_token = prompt_tokens[-1]
+        rng = np.random.default_rng(seed)
+
+        for _ in range(max_tokens):
+            next_token = self._bigram_model.sample_next_token(
+                prev_token=prev_token,
+                rng=rng,
+                top_k=50,
+                top_p=top_p,
+                temperature=temperature if temperature > 0 else 1.0,
+            )
+            generated.append(next_token)
+            prev_token = next_token
+
+            text = self._tokenizer.decode(generated)
+            if stop and any(seq in text for seq in stop):
+                break
+
+        output = self._tokenizer.decode(generated)
+        if stop:
+            for seq in stop:
+                if seq in output:
+                    output = output[: output.index(seq)]
+                    break
+        return output or " "
 
     async def complete(
         self,

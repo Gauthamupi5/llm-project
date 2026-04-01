@@ -54,3 +54,13 @@ Perfect — now you’re asking at a systems-architect level.
 16) Create complete system architecture doc
 
 Create LLM system architecture. Architect defination, Architecture design, Requirements, specification, testing stratergy and test case create all end to end documents as .md file then create complete code enterprise class like gpt and test case.
+
+python -m pytest -q tests/unit/test_training_layer.py tests/unit/test_inference_engine.py
+
+set NEURONLM_INFERENCE_BACKEND=bigram
+set NEURONLM_BIGRAM_CHECKPOINT_PATH=artifacts/bigram_model.npz
+python -m uvicorn neuronlm.main:app --host 0.0.0.0 --port 8000 --reload
+
+set NEURONLM_INFERENCE_BACKEND=bigram
+set NEURONLM_BIGRAM_CHECKPOINT_PATH=artifacts/bigram_model.npz
+python -m uvicorn neuronlm.main:app --host 0.0.0.0 --port 8000 --reload
