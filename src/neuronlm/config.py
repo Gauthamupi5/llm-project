@@ -65,8 +65,9 @@ class Settings(BaseSettings):
     inference_timeout_seconds: int = 120
     stream_idle_timeout_seconds: int = 30
     max_batch_size: int = 64
-    inference_backend: str = "simulated"  # simulated | bigram
+    inference_backend: str = "simulated"  # simulated | bigram | transformers
     bigram_checkpoint_path: Optional[str] = None
+    transformers_model_name: str = "distilgpt2"
 
     # Content Moderation
     enable_content_moderation: bool = True

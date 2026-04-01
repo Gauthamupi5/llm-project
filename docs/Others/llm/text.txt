@@ -64,3 +64,193 @@ python -m uvicorn neuronlm.main:app --host 0.0.0.0 --port 8000 --reload
 set NEURONLM_INFERENCE_BACKEND=bigram
 set NEURONLM_BIGRAM_CHECKPOINT_PATH=artifacts/bigram_model.npz
 python -m uvicorn neuronlm.main:app --host 0.0.0.0 --port 8000 --reload
+
+<!------------------------------------------>
+
+Yes. For the GPT path, most of those internals are present functionally, but they are not implemented as explicit NeuronLM source modules. For the bigram path, the generation mechanics are explicit in your code, but transformer-specific concepts do not exist there.
+
+GPT path: distilgpt2, gpt2, gpt2-medium
+
+Model type:
+1. Available.
+2. It is a decoder-only causal language model loaded through HuggingFace in transformers_backend.py.
+
+Layers:
+1. Available functionally.
+2. Transformer layers are inside the loaded HuggingFace model, not written out as your own layer classes in this repo.
+3. You can see only the model loading wrapper in transformers_backend.py.
+
+Attention:
+1. Available functionally.
+2. Self-attention is part of the GPT model internals, but there is no explicit attention implementation in this project source.
+3. So attention exists at runtime, but not as inspectable NeuronLM code.
+
+Embeddings:
+1. Available functionally.
+2. Token embeddings and positional handling are inside the GPT model internals after load at transformers_backend.py and transformers_backend.py.
+3. Your tokenizer in tokenizer.py only converts text to token ids; it is not the embedding layer.
+
+Forward pass:
+1. Available functionally.
+2. The forward pass is executed inside HuggingFace generate, not exposed as a separate forward method in your platform code.
+3. The closest visible call site is transformers_backend.py.
+
+Decoding loop:
+1. Available functionally.
+2. The token generation loop is inside HuggingFace generate, so NeuronLM does not own the explicit per-token loop.
+3. Control enters from inference_engine.py and goes into transformers_backend.py.
+
+Head:
+1. Available functionally.
+2. The logits head or LM head exists inside the GPT model.
+3. It is not separately defined in this repo, but it is part of the loaded causal LM in transformers_backend.py.
+
+KV cache usage:
+1. Not available as an explicit platform feature.
+2. There is no NeuronLM KV cache manager, cache lifecycle API, or observability around cache reuse.
+3. If HuggingFace uses cache internally during generation, that is library-managed, not project-managed.
+4. So the correct answer is: possibly implicit at runtime, but not available in your codebase as a first-class layer.
+
+Bigram path
+
+Model type:
+1. Available explicitly.
+2. It is a statistical bigram language model in bigram_lm.py.
+
+Layers:
+1. Not applicable in transformer sense.
+2. There are no neural layers, no stacked blocks, no feed-forward layers, no attention blocks.
+
+Attention:
+1. Not available.
+2. Bigram only models transition probabilities from one token to the next.
+
+Embeddings:
+1. Not available as neural embeddings.
+2. The tokenizer provides token ids through tokenizer.py, but the bigram model does not convert them into dense learned vectors.
+
+Forward pass:
+1. Available in a simplified statistical sense.
+2. The nearest equivalent is looking up next-token probability distribution from the transitions table in bigram_lm.py.
+3. This is not a neural forward pass.
+
+Decoding loop:
+1. Available explicitly in your code.
+2. The engine samples token by token in inference_engine.py.
+
+Head:
+1. Not available as a neural output head.
+2. The output distribution comes directly from stored transition probabilities, not from a learned linear projection plus softmax layer.
+
+KV cache usage:
+1. Not available.
+2. Also not needed in this architecture, because there is no transformer attention state to cache.
+
+Direct summary
+
+GPT path:
+1. Model type, layers, attention, embeddings, forward pass, decoding loop, and head are available at runtime.
+2. But they are mostly hidden inside HuggingFace model internals, not explicitly implemented in your own code.
+3. KV cache is not available as an explicit NeuronLM platform feature.
+
+Bigram path:
+1. Model type and decoding loop are explicitly available in your code.
+2. Transformer concepts such as layers, attention, embeddings, head, and KV cache are not available because this is not a transformer model.
+
+If you want, I can turn this into a new document named 16_gpt_vs_bigram_internal_availability.md with a side-by-side table: Available in code, Available only inside library, Not applicable, Missing.
+
+<!---------------------------------------->
+
+Visual Diagram
+
+```mermaid
+flowchart TD
+        A[Client Request] --> B[FastAPI API Layer]
+        B --> C[Middleware\nAuth / Rate Limit / Logging / Moderation]
+        C --> D[InferenceEngine]
+        D --> E{Backend Selection}
+
+        E --> F[Simulated Backend]
+        E --> G[Bigram Backend]
+        E --> H[Transformers Backend\ndistilgpt2 / gpt2 / gpt2-medium]
+
+        G --> G1[Tokenizer IDs]
+        G1 --> G2[Bigram transition table]
+        G2 --> G3[Explicit decoding loop\nnext token sampling in project code]
+        G3 --> Z[Response]
+
+        H --> H1[HF Tokenizer]
+        H1 --> H2[GPT model internals]
+        H2 --> H3[Embeddings]
+        H3 --> H4[Decoder-only transformer layers]
+        H4 --> H5[LM head / logits]
+        H5 --> H6[HF generate decoding loop]
+        H6 --> Z
+
+        F --> Z
+
+        M1[Missing enterprise layers] -.-> D
+        M1 -.-> M2[KV cache lifecycle manager]
+        M1 -.-> M3[Dynamic batching]
+        M1 -.-> M4[Scheduler / admission control]
+        M1 -.-> M5[Distributed GPU worker orchestration]
+```
+
+```mermaid
+flowchart LR
+        subgraph GPT_Path[GPT Path in Current Project]
+                A1[Model type: decoder-only GPT]
+                A2[Layers: inside HF model]
+                A3[Attention: inside HF model]
+                A4[Embeddings: inside HF model]
+                A5[Forward pass: internal]
+                A6[Decoding loop: HF generate]
+                A7[Head / logits: internal]
+                A8[KV cache: not explicit in project]
+                A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7 --> A8
+        end
+
+        subgraph Bigram_Path[Bigram Path in Current Project]
+                B1[Model type: statistical bigram LM]
+                B2[Layers: not applicable]
+                B3[Attention: not available]
+                B4[Embeddings: not available]
+                B5[Forward pass: transition lookup]
+                B6[Decoding loop: explicit in code]
+                B7[Head: not available]
+                B8[KV cache: not needed]
+                B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
+        end
+```
+
+
+They are not directly added to your code mainly because this project uses a wrapper architecture, not a from-scratch model implementation.
+
+Why this is common and intentional:
+
+1. Reuse of battle-tested model internals  
+- distilgpt2/gpt2/gpt2-medium already implement embeddings, attention blocks, transformer layers, and LM head.  
+- Re-implementing these from scratch is high risk and usually worse in correctness and performance.
+
+2. Faster delivery and lower maintenance  
+- Your code focuses on orchestration: API, auth, routing, moderation, usage, and backend selection.  
+- Core neural math is delegated to HuggingFace, so you can ship features faster.
+
+3. Separation of concerns  
+- Platform layer in your repo: request flow, policies, serving contracts.  
+- Model layer in external library: forward pass internals and generation machinery.  
+- You can see this split in inference_engine.py and transformers_backend.py.
+
+4. Compatibility and portability  
+- Using AutoModel/AutoTokenizer lets you swap models with minimal code changes.  
+- If internals were hardcoded, model upgrades and new architectures become difficult.
+
+5. Performance engineering is library/runtime-driven  
+- Most low-level optimizations (kernels, fused ops, graph/runtime behavior) live in PyTorch/Transformers/vLLM, not application code.
+
+Why this feels like a limitation:
+1. You cannot easily inspect or customize every internal layer in your own repo.
+2. Features like explicit KV cache lifecycle, custom scheduler, and token-level control are not first-class in your platform yet.
+
+So the short answer:
+- Not added directly because your project is designed as a serving platform around pretrained model runtimes, not as a framework that re-implements transformer internals.

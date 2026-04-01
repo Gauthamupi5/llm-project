@@ -40,6 +40,7 @@ from neuronlm.models.schemas import (
     UsageInfo,
 )
 from neuronlm.training.bigram_lm import BigramLanguageModel
+from neuronlm.training.transformers_backend import TransformersBackend
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ class InferenceEngine:
         settings = get_settings()
         self._backend = settings.inference_backend.lower().strip()
         self._bigram_model: Optional[BigramLanguageModel] = None
+        self._transformers_backend: Optional[TransformersBackend] = None
 
         # Register default models
         self._register_default_models()
@@ -86,6 +88,17 @@ class InferenceEngine:
                     "Failed to load bigram checkpoint, falling back to simulated backend"
                 )
                 self._backend = "simulated"
+
+        # Transformers backend: instantiate (model loaded lazily on first call)
+        if self._backend == "transformers":
+            self._transformers_backend = TransformersBackend(
+                model_name=settings.transformers_model_name
+            )
+            logger.info(
+                "Transformers backend initialised (model='%s'). "
+                "Model weights will be downloaded on first request.",
+                settings.transformers_model_name,
+            )
 
     def _register_default_models(self) -> None:
         """Register built-in models."""
@@ -156,6 +169,7 @@ class InferenceEngine:
         self,
         prompt: str,
         temperature: float,
+        top_p: float,
         max_tokens: int,
         stop: Optional[list[str]],
         seed: Optional[int],
@@ -173,6 +187,16 @@ class InferenceEngine:
                 stop=stop,
                 seed=seed,
                 top_p=1.0,
+            )
+
+        if self._backend == "transformers" and self._transformers_backend is not None:
+            return self._transformers_backend.generate(
+                prompt=prompt,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+                stop=stop,
             )
 
         if seed is not None:
@@ -301,6 +325,7 @@ class InferenceEngine:
         response_text = self._generate_response_text(
             prompt=prompt,
             temperature=temperature,
+            top_p=top_p,
             max_tokens=max_tokens,
             stop=stop if isinstance(stop, list) else ([stop] if stop else None),
             seed=seed,
@@ -368,6 +393,7 @@ class InferenceEngine:
         response_text = self._generate_response_text(
             prompt=prompt,
             temperature=temperature,
+            top_p=top_p,
             max_tokens=max_tokens,
             stop=stop if isinstance(stop, list) else ([stop] if stop else None),
             seed=seed,
