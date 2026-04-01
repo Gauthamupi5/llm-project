@@ -47,14 +47,48 @@ python -m uvicorn neuronlm.main:app --host 0.0.0.0 --port 8000 --reload
 
 ### Step 4: Call interface after training
 
+Generate a JWT token first if you do not already have one:
+
 ```bash
-curl -X POST http://localhost:8000/v1/chat/completions ^
-  -H "Content-Type: application/json" ^
-  -H "Authorization: Bearer <TOKEN>" ^
-  -d "{\"model\":\"neuronlm-7b\",\"messages\":[{\"role\":\"user\",\"content\":\"Explain KV cache\"}],\"max_tokens\":64,\"seed\":42}"
+python -c "from neuronlm.core.auth import get_auth_service; print(get_auth_service().create_jwt_token('demo-user'))"
+```
+
+Use PowerShell like this:
+
+```powershell
+$TOKEN = (python -c "from neuronlm.core.auth import get_auth_service; print(get_auth_service().create_jwt_token('demo-user'))").Trim()
+
+$body = @{
+  model = "neuronlm-7b"
+  messages = @(
+    @{
+      role = "user"
+      content = "Explain KV cache"
+    }
+  )
+  max_tokens = 64
+  seed = 42
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8000/v1/chat/completions" `
+  -Headers @{ Authorization = "Bearer $TOKEN" } `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+If you want to use `curl` in PowerShell, call `curl.exe` explicitly:
+
+```bash
+curl.exe -X POST "http://localhost:8000/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer <TOKEN>" -d "{\"model\":\"neuronlm-7b\",\"messages\":[{\"role\":\"user\",\"content\":\"Explain KV cache\"}],\"max_tokens\":64,\"seed\":42}"
 ```
 
 If the checkpoint is loaded correctly, output is generated from trained bigram transitions.
+
+Common reason the old command failed on Windows:
+- `^` is for `cmd.exe`, not PowerShell.
+- In PowerShell, `curl` is often an alias for `Invoke-WebRequest`, not real curl.
+- The token from `python -c` may include a trailing newline, so use `.Trim()`.
 
 ---
 
