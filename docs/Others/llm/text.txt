@@ -1,0 +1,56 @@
+Where this Concepts Fit Training Architecture or Inference Flow or 
+
+Model	Model Type	Decoder-only / Encoder / Encoder-Decoder			
+Model	Model Size	7B / 70B / MoE etc.			
+Training	Training Objective	Autoregressive / Classification / RLHF			
+Training	Fine-tuning	Base or fine-tuned model			
+Inference	Decoding Strategy	Greedy / Top-k / Top-p			
+Inference	Latency Target	Expected response time			
+Inference	KV Cache	Used or not			
+
+
+👉 The truth is:
+Step-by-Step Architecture = what happens in ONE pass
+Inference Flow = how that ONE pass is repeated over time
+Think in layers:
+
+Model layer -> interface layer -> decoding layer
+
+Step-by-Step Architecture = what happens in ONE pass
+Inference Flow = how that ONE pass is repeated over time
+How it fits below?
+
+Level 1: Model Type (design)
+        ↓
+Level 2: Model Layers (actual computation)
+        ↓
+Level 3: Inference Loop (token generation + decoding)
+
+
+CPython 3.14.3 (64 bit)
+<!------------------------>
+
+prompt or template analyse entire LLM system for analyzing the code. Also define where it fits in
+
+Perfect — now you’re asking at a systems-architect level.
+
+
+
+1) Architecture Definition doc
+2) Architecture Design Doc
+3) Requirement Doc
+4) Specification Doc
+5) Testing Stratergy Doc
+6) Test Cases Doc
+7) Core LLM engine code
+8) API and service layer code
+9) Infrastructure and config code
+10) Test Suite code
+11) Verify Project Structure
+12) Clarify training vs model sections in docs/02_architecture_design.md
+13) Create mapping doc: GPT Training <-> Transfomer (example)
+14) Doucment gaps between GPT and NeuronLM Architecture
+15) Add System Architecture gap to gaps doc
+16) Create complete system architecture doc
+
+Create LLM system architecture. Architect defination, Architecture design, Requirements, specification, testing stratergy and test case create all end to end documents as .md file then create complete code enterprise class like gpt and test case.
